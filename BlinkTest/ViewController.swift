@@ -8,35 +8,53 @@
 
 import UIKit
 
-class ViewController: UIViewController {
-
+class ViewController: UIViewController ,UITextFieldDelegate{
+    var objects = [[String : String]]()
+   
+    @IBOutlet weak var txtReg: UITextField!
+    @IBOutlet weak var textNum: UITextField!
     
+    @IBAction func getList(sender: AnyObject) {
+        testGet()
+    }
     
-    @IBAction func okTapped(sender: AnyObject) {
-        // Correct url and username/password
-        self.post(["username":"qingjie", "password":"password"], url: "http://localhost:4567/login") { (succeeded: Bool, msg: String) -> () in
-            var alert = UIAlertView(title: "Success!", message: msg, delegate: nil, cancelButtonTitle: "Okay.")
-            if(succeeded) {
-                alert.title = "Success!"
-                alert.message = msg
+    func testGet(){
+        let m:Int! = (textNum.text).toInt()
+        if m >= 1{
+            for (var i = 0; i < m; i++){
+                get("http://52.5.223.80:4567/network/1/cameras")
             }
-            else {
-                alert.title = "Failed :("
-                alert.message = msg
-            }
-            
-            // Move to the UI thread
-            dispatch_async(dispatch_get_main_queue(), { () -> Void in
-                // Show the alert
-                alert.show()
-            })
         }
         
+    }
+
+
+    @IBAction func okTapped(sender: AnyObject) {
+        testPost()
+    }
+    let diceRoll = Int(arc4random_uniform(7))
+    
+    func testPost(){
+        let n:Int? = (txtReg.text).toInt()
+        if n >= 1 {
+            for (var i = 0; i < n; i++){
+                //let diceRoll = Int(arc4random_uniform(7))
+                let dic:Dictionary<String, String> = ["email":"\(Timestamp)@blink.com", "password":"aa", "password_confirm":"aa", "name":"aa","phone_number":"111-123","client_name":"aa","client_type":"ios","client_specifier":"OS","notification_key":"APNS"]
+                post(dic, url: "http://52.5.223.80:4567/account/register")
+            }
+        }
+    }
+    
+    var Timestamp: String {
+        return "\(NSDate().timeIntervalSince1970 * 1000)"
     }
     
     override func viewDidLoad() {
         super.viewDidLoad()
         // Do any additional setup after loading the view, typically from a nib.
+        textNum.delegate = self
+        txtReg.delegate = self
+        println("Timestamp: \(Timestamp)")
     }
 
     override func didReceiveMemoryWarning() {
@@ -44,19 +62,74 @@ class ViewController: UIViewController {
         // Dispose of any resources that can be recreated.
     }
     
-    func post(params : Dictionary<String, String>, url : String, postCompleted : (succeeded: Bool, msg: String) -> ()) {
+    func post(params : Dictionary<String, String>, url : String) {
         var request = NSMutableURLRequest(URL: NSURL(string: url)!)
         var session = NSURLSession.sharedSession()
         request.HTTPMethod = "POST"
         var accessToken = ""
         
         var err: NSError?
+        print(params)
+        
         request.HTTPBody = NSJSONSerialization.dataWithJSONObject(params, options: nil, error: &err)
         
-        //request.addValue("application/json", forHTTPHeaderField: "Content-Type")
+        request.addValue("application/json", forHTTPHeaderField: "Content-Type")
         request.addValue("application/json", forHTTPHeaderField: "Accept")
-        request.addValue("application/x-www-form-urlencoded", forHTTPHeaderField: "Content-Type")
-        request.setValue("access_token=\(accessToken)", forHTTPHeaderField:"Authorization")
+        //request.addValue("application/x-www-form-urlencoded", forHTTPHeaderField: "Content-Type")
+        //request.setValue("access_token=\(accessToken)", forHTTPHeaderField:"Authorization")
+        
+        var task = session.dataTaskWithRequest(request, completionHandler: {data, response, error -> Void in
+            println("Response: \(response)")
+            var strData = NSString(data: data, encoding: NSUTF8StringEncoding)
+            println("Body: \(strData)")
+            var err: NSError?
+            var json = NSJSONSerialization.JSONObjectWithData(data, options: .MutableLeaves, error: &err) as? NSDictionary
+           
+            var msg = "No message"
+            
+            // Did the JSONObjectWithData constructor return an error? If so, log the error to the console
+            if(err != nil) {
+                println(err!.localizedDescription)
+                let jsonStr = NSString(data: data, encoding: NSUTF8StringEncoding)
+                println("Error could not parse JSON: '\(jsonStr)'")
+                
+            }
+            else {
+                // The JSONObjectWithData constructor didn't return an error. But, we should still
+                // check and make sure that json has a value using optional binding.
+                if let parseJSON = json {
+                    // Okay, the parsedJSON is here, let's get the value for 'success' out of it
+                    if let success = parseJSON["success"] as? Bool {
+                        println("Succes: \(success)")
+                                            }
+                    return
+                }
+                else {
+                    // Woa, okay the json object was nil, something went worng. Maybe the server isn't running?
+                    let jsonStr = NSString(data: data, encoding: NSUTF8StringEncoding)
+                    println("Error could not parse JSON: \(jsonStr)")
+                }
+            }
+        })
+       
+        task.resume()
+    }
+    
+    
+    func get(url : String) {
+        var request = NSMutableURLRequest(URL: NSURL(string: url)!)
+        var session = NSURLSession.sharedSession()
+        request.HTTPMethod = "GET"
+        var accessToken = "xFvsYHrnssoOFwvNixX5ug"
+        
+        var err: NSError?
+        
+        //request.HTTPBody = NSJSONSerialization.dataWithJSONObject(params, options: nil, error: &err)
+        
+        request.addValue("application/json", forHTTPHeaderField: "Content-Type")
+        request.addValue("application/json", forHTTPHeaderField: "Accept")
+        //request.addValue("application/x-www-form-urlencoded", forHTTPHeaderField: "Content-Type")
+        request.setValue(accessToken, forHTTPHeaderField:"TOKEN_AUTH")
         
         var task = session.dataTaskWithRequest(request, completionHandler: {data, response, error -> Void in
             println("Response: \(response)")
@@ -72,7 +145,7 @@ class ViewController: UIViewController {
                 println(err!.localizedDescription)
                 let jsonStr = NSString(data: data, encoding: NSUTF8StringEncoding)
                 println("Error could not parse JSON: '\(jsonStr)'")
-                postCompleted(succeeded: false, msg: "Error")
+                
             }
             else {
                 // The JSONObjectWithData constructor didn't return an error. But, we should still
@@ -81,7 +154,6 @@ class ViewController: UIViewController {
                     // Okay, the parsedJSON is here, let's get the value for 'success' out of it
                     if let success = parseJSON["success"] as? Bool {
                         println("Succes: \(success)")
-                        postCompleted(succeeded: success, msg: "Logged in.")
                     }
                     return
                 }
@@ -89,7 +161,6 @@ class ViewController: UIViewController {
                     // Woa, okay the json object was nil, something went worng. Maybe the server isn't running?
                     let jsonStr = NSString(data: data, encoding: NSUTF8StringEncoding)
                     println("Error could not parse JSON: \(jsonStr)")
-                    postCompleted(succeeded: false, msg: "Error")
                 }
             }
         })
